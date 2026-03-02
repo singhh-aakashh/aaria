@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Aaria</string>
+    <string name="notification_channel_id">aaria_foreground</string>
+    <string name="notification_channel_name">Aaria Service</string>
+    <string name="notification_listener_prompt">Aaria needs notification access to read WhatsApp messages</string>
+    <string name="microphone_permission_prompt">Aaria needs microphone access for voice replies</string>
+</resources>
