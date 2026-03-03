@@ -4,4 +4,11 @@
     <string name="notification_channel_name">Aaria Service</string>
     <string name="notification_listener_prompt">Aaria needs notification access to read WhatsApp messages</string>
     <string name="microphone_permission_prompt">Aaria needs microphone access for voice replies</string>
+
+    <!-- Phase 1: message capture debug UI -->
+    <string name="notification_access_button">Open notification access settings</string>
+    <string name="notification_access_status_enabled">Notification access: ENABLED</string>
+    <string name="notification_access_status_disabled">Notification access: DISABLED</string>
+    <string name="captured_messages_title">Captured WhatsApp messages</string>
+    <string name="no_messages_yet">No messages captured yet.</string>
 </resources>
