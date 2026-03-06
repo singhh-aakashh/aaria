@@ -52,4 +52,7 @@ dependencies {
     implementation("ai.picovoice:porcupine-android:3.0.2")
 
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
+
+    // ML Kit language identification — bundled model (~900 KB), works fully offline
+    implementation("com.google.mlkit:language-id:17.0.6")
 }

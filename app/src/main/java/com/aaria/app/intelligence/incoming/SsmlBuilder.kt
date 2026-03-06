@@ -3,7 +3,7 @@ package com.aaria.app.intelligence.incoming
 class SsmlBuilder {
 
     fun build(words: List<Transliterator.TransliteratedWord>): String {
-        if (words.isEmpty()) return ""
+        if (words.isEmpty()) return "<speak></speak>"
 
         val segments = mutableListOf<SsmlSegment>()
         var currentLang = words.first().language

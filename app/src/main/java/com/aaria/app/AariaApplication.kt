@@ -11,6 +11,7 @@ import com.aaria.app.intelligence.outgoing.OutgoingTextCleaner
 import com.aaria.app.mode.ModeManager
 import com.aaria.app.network.ApiClient
 import com.aaria.app.notification.RemoteInputStore
+import com.aaria.app.notification.MarkAsReadStore
 import com.aaria.app.queue.MessageObject
 import com.aaria.app.queue.MessageQueue
 import com.aaria.app.recording.DualStopDetector
@@ -18,6 +19,7 @@ import com.aaria.app.recording.SilenceDetector
 import com.aaria.app.reply.ReplyManager
 import com.aaria.app.stt.SttManager
 import com.aaria.app.stt.WhisperClient
+import com.aaria.app.intelligence.incoming.IncomingTextProcessor
 import com.aaria.app.tts.MessageReader
 import com.aaria.app.tts.TtsManager
 import com.aaria.app.wakeword.WakeWordEngine
@@ -28,6 +30,9 @@ class AariaApplication : Application() {
         private set
 
     lateinit var remoteInputStore: RemoteInputStore
+        private set
+
+    lateinit var markAsReadStore: MarkAsReadStore
         private set
 
     lateinit var modeManager: ModeManager
@@ -85,6 +90,27 @@ class AariaApplication : Application() {
     /** Invoked on main thread when [recordingStatus] or [lastRecordedWavPath] changes. */
     var onRecordingStatusChanged: ((status: String, wavPath: String?) -> Unit)? = null
 
+    /**
+     * Invoked on main thread after each incoming message is processed through the
+     * language intelligence pipeline. Used by MainActivity to display the language
+     * profile and SSML output for Phase 5 validation.
+     */
+    var onProcessedMessage: ((IncomingTextProcessor.ProcessedMessage) -> Unit)? = null
+
+    /**
+     * Called by [WhatsAppNotificationListener] when connected. When set, the app can
+     * trigger the "Mark as read" action (so the sender sees blue checkmarks) before
+     * dismissing the notification. Invoke with [MessageObject.id].
+     */
+    var onTriggerMarkAsRead: ((messageId: String) -> Unit)? = null
+
+    /**
+     * Called by [WhatsAppNotificationListener] when connected. When set, the app can
+     * dismiss WhatsApp notifications (e.g. after TTS has read the message) to avoid
+     * the same message being read twice.
+     */
+    var onCancelNotification: ((pkg: String, tag: String?, id: Int) -> Unit)? = null
+
     fun setRecordingStatus(status: String, wavPath: String? = null) {
         recordingStatus = status
         lastRecordedWavPath = if (status == "idle") wavPath else null
@@ -99,6 +125,7 @@ class AariaApplication : Application() {
 
         messageQueue = MessageQueue()
         remoteInputStore = RemoteInputStore()
+        markAsReadStore = MarkAsReadStore()
         modeManager = ModeManager()
         audioFocusManager = AudioFocusManager(this)
         settingsStore = SettingsStore(this)
@@ -114,6 +141,11 @@ class AariaApplication : Application() {
             audioFocusManager = audioFocusManager,
             modeManager = modeManager
         )
+        messageReader.onMessageProcessed = { processed ->
+            Handler(Looper.getMainLooper()).post {
+                onProcessedMessage?.invoke(processed)
+            }
+        }
 
         silenceDetector = SilenceDetector(
             sampleRateHz = 16000,

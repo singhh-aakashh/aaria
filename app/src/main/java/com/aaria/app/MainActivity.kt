@@ -11,10 +11,12 @@ import android.provider.Settings
 import android.widget.Button
 import android.widget.RadioGroup
 import android.widget.TextView
+import androidx.appcompat.widget.SwitchCompat
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.aaria.app.intelligence.incoming.IncomingTextProcessor
 import com.aaria.app.mode.AariaMode
 import com.aaria.app.queue.MessageObject
 import com.aaria.app.service.AariaForegroundService
@@ -25,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var batteryStatusTextView: TextView
     private lateinit var ssmlStatusTextView: TextView
     private lateinit var logTextView: TextView
+    private lateinit var logScrollView: androidx.core.widget.NestedScrollView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +37,7 @@ class MainActivity : AppCompatActivity() {
         batteryStatusTextView = findViewById(R.id.batteryStatusTextView)
         ssmlStatusTextView = findViewById(R.id.ssmlStatusTextView)
         logTextView = findViewById(R.id.logTextView)
+        logScrollView = findViewById(R.id.logScrollView)
 
         requestRecordAudioIfNeeded()
 
@@ -57,8 +61,10 @@ class MainActivity : AppCompatActivity() {
         updateNotificationAccessStatus()
         updateBatteryStatus()
         updateSsmlStatus()
+        bindMarkAsReadAfterTtsToggle()
         bindToMessageQueue()
         bindRecordingStatus()
+        bindProcessedMessageLog()
     }
 
     override fun onResume() {
@@ -80,6 +86,9 @@ class MainActivity : AppCompatActivity() {
         val app = application as AariaApplication
         app.messageQueue.removeListener(LISTENER_TAG)
         app.onRecordingStatusChanged = null
+        app.onProcessedMessage = null
+        app.onCancelNotification = null
+        app.onTriggerMarkAsRead = null
     }
 
     // -------------------------------------------------------------------------
@@ -106,12 +115,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun bindMarkAsReadAfterTtsToggle() {
+        val app = application as AariaApplication
+        val switchView = findViewById<SwitchCompat>(R.id.markAsReadAfterTtsSwitch)
+        switchView.isChecked = app.settingsStore.markAsReadAfterTts
+        switchView.setOnCheckedChangeListener { _, isChecked ->
+            app.settingsStore.markAsReadAfterTts = isChecked
+            appendSystemLog("Mark as read after TTS: ${if (isChecked) "on" else "off"}")
+        }
+    }
+
     private fun updateNotificationAccessStatus() {
         val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(this)
         val enabled = enabledPackages.contains(packageName)
         statusTextView.setText(
             if (enabled) R.string.notification_access_status_enabled
             else R.string.notification_access_status_disabled
+        )
+        statusTextView.setTextColor(
+            ContextCompat.getColor(this, if (enabled) R.color.aaria_success else R.color.aaria_error)
         )
     }
 
@@ -123,6 +145,16 @@ class MainActivity : AppCompatActivity() {
             false -> getString(R.string.ssml_status_unsupported)
             null -> getString(R.string.ssml_status_unknown)
         }
+        ssmlStatusTextView.setTextColor(
+            ContextCompat.getColor(
+                this,
+                when (supported) {
+                    true -> R.color.aaria_success
+                    false -> R.color.aaria_warning
+                    null -> R.color.aaria_on_surface
+                }
+            )
+        )
     }
 
     private fun updateBatteryStatus() {
@@ -131,6 +163,9 @@ class MainActivity : AppCompatActivity() {
         batteryStatusTextView.setText(
             if (exempt) R.string.battery_opt_exempt
             else R.string.battery_opt_restricted
+        )
+        batteryStatusTextView.setTextColor(
+            ContextCompat.getColor(this, if (exempt) R.color.aaria_success else R.color.aaria_warning)
         )
         findViewById<Button>(R.id.batteryOptButton).isEnabled = !exempt
     }
@@ -193,6 +228,27 @@ class MainActivity : AppCompatActivity() {
         builder.append("Timestamp: ${message.timestamp}")
         builder.append("\n\n")
         logTextView.append(builder.toString())
+        scrollLogToBottom()
+    }
+
+    private fun bindProcessedMessageLog() {
+        val app = application as AariaApplication
+        app.onProcessedMessage = { processed ->
+            appendProcessedLog(processed)
+        }
+    }
+
+    private fun appendProcessedLog(processed: IncomingTextProcessor.ProcessedMessage) {
+        val p = processed.languageProfile
+        val builder = StringBuilder()
+        builder.append("[Lang] primary=${p.primary}  hi=${"%.0f".format(p.hindiRatio * 100)}%  en=${"%.0f".format(p.englishRatio * 100)}%  script=${p.script}\n")
+        builder.append("[Plain] ${processed.plainText}\n")
+        builder.append("[SSML] ${processed.ssml.take(120)}${if (processed.ssml.length > 120) "…" else ""}\n\n")
+        runOnUiThread {
+            if (logTextView.text == getString(R.string.no_messages_yet)) logTextView.text = ""
+            logTextView.append(builder.toString())
+            scrollLogToBottom()
+        }
     }
 
     private fun appendSystemLog(text: String) {
@@ -201,7 +257,12 @@ class MainActivity : AppCompatActivity() {
                 logTextView.text = ""
             }
             logTextView.append("[System] $text\n\n")
+            scrollLogToBottom()
         }
+    }
+
+    private fun scrollLogToBottom() {
+        logScrollView.post { logScrollView.fullScroll(android.view.View.FOCUS_DOWN) }
     }
 
     companion object {

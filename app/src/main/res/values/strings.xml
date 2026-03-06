@@ -28,6 +28,7 @@
     <string name="mode_driving">Driving</string>
     <string name="mode_silent">Silent</string>
     <string name="mode_driving_hint">Driving mode reads all messages aloud.</string>
+    <string name="mark_as_read_after_tts_label">Mark as read after speaking — dismiss notification so the same message is not read twice</string>
 
     <!-- Phase 3: Voice reply status -->
     <string name="voice_reply_section_title">Voice reply (Phase 3)</string>

@@ -57,13 +57,17 @@ class TtsManager(
     }
 
     /**
-     * Speak SSML markup. Falls back to plain text if SSML is not supported.
+     * Speak SSML markup. Falls back to plain text if SSML is not supported or
+     * if the probe result is not yet known (null = still checking).
+     * Never dispatches SSML while the probe is pending — the TTS engine silently
+     * drops unknown markup and never fires onDone, which would deadlock the pipeline.
      */
     fun speakSsml(ssml: String, plainFallback: String, onDone: (() -> Unit)? = null) {
-        if (ssmlSupported == false) {
-            speakInternal(plainFallback, isSsml = false, onDone = onDone)
-        } else {
+        if (ssmlSupported == true) {
             speakInternal(ssml, isSsml = true, onDone = onDone)
+        } else {
+            // ssmlSupported == false OR null (probe still running) → use plain text
+            speakInternal(plainFallback, isSsml = false, onDone = onDone)
         }
     }
 
@@ -108,8 +112,9 @@ class TtsManager(
         override fun onDone(id: String?) {
             val cb = pendingOnDone
             pendingOnDone = null
-            cb?.invoke()
-
+            // Release the speaking lock BEFORE invoking the callback so that
+            // any speak() call made inside the callback (e.g. from a resumed
+            // coroutine) can successfully acquire the lock and drive the queue.
             isSpeaking.set(false)
             val next = jobQueue.peek()
             if (next != null) {
@@ -117,6 +122,7 @@ class TtsManager(
             } else {
                 onFocusAbandon()
             }
+            cb?.invoke()
         }
 
         @Deprecated("Deprecated in API 21", ReplaceWith("onError(utteranceId, errorCode)"))

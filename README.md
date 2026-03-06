@@ -291,7 +291,13 @@ fastText classifier training and on-device integration. Abbreviation dictionary.
 
 ### Phase 6 — Multi-Message Queue + Contact Selection
 
-Queue management for simultaneous messages. TTS announcement of pending senders. Contact selection mechanism (approach TBD — see risk note above). Post-reply queue continuation.
+Queue management for simultaneous messages. TTS announcement of pending senders. Contact selection by voice (numbered options + fuzzy name match via Android SpeechRecognizer). Post-reply queue continuation.
+
+**Implementation:**
+- `MessageQueue` — extended with `pendingSenderKeys()`, `allBySenderKey()`, `removeAllBySenderKey()` for grouped conversation retrieval.
+- `QueueAnnouncer` — builds and speaks the "N messages remaining — Rahul, Mom. Say 1 for Rahul, 2 for Mom, or say later." announcement.
+- `ContactSelector` — short Android `SpeechRecognizer` burst; resolves spoken numbers ("1", "2", "one", "ek") and fuzzy name matches against pending sender names. "Later"/"skip"/"baad mein" releases the pipeline.
+- `AariaForegroundService` — overhauled with `pipelineBusy` gate and full queue loop: read → reply → announce remaining → select → read → repeat until empty or "later".
 
 **Done when:** 5+ simultaneous messages handled correctly. User can select which conversation to reply to by voice. Queue persists across reply cycles.
 

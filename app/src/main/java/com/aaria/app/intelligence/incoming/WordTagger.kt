@@ -11,16 +11,16 @@ class WordTagger {
 
     fun tag(text: String, profile: LanguageDetector.LanguageProfile): List<TaggedWord> {
         return text.split(Regex("\\s+")).filter { it.isNotEmpty() }.map { word ->
-            TaggedWord(word, classifyWord(word))
+            TaggedWord(word, classifyWord(word, profile))
         }
     }
 
-    private fun classifyWord(word: String): Language {
+    private fun classifyWord(word: String, profile: LanguageDetector.LanguageProfile): Language {
         val lower = word.lowercase().trimEnd('.', ',', '!', '?', ';', ':')
         return when {
             // Any Devanagari character → definitely Hindi
             word.any { it.code in 0x0900..0x097F } -> Language.HINDI
-            // Known English words take priority
+            // Known English words take priority over profile bias
             lower in ENGLISH_VOCAB -> Language.ENGLISH
             // Known Hindi romanised words
             lower in HINDI_VOCAB -> Language.HINDI
@@ -28,7 +28,12 @@ class WordTagger {
             HINDI_SUFFIXES.any { lower.endsWith(it) } && lower.length > 3 -> Language.HINDI
             // Heuristic: contains double vowels common in romanised Hindi
             Regex("aa|ii|oo|ee|uu").containsMatchIn(lower) -> Language.HINDI
-            // Default: treat as English
+            // Use ML Kit profile to resolve ambiguous words:
+            // If the overall text is strongly Hindi (ratio ≥ 0.65), lean Hindi for unknowns.
+            // If strongly English (ratio ≥ 0.65), lean English for unknowns.
+            profile.hindiRatio >= 0.65f -> Language.HINDI
+            profile.englishRatio >= 0.65f -> Language.ENGLISH
+            // Mixed / undetermined — default English (safer for TTS)
             else -> Language.ENGLISH
         }
     }
@@ -134,7 +139,7 @@ class WordTagger {
             "come", "go", "get", "make", "know", "think",
             "take", "give", "see", "look", "want", "need",
             "like", "love", "hate", "feel", "say", "tell",
-            "work", "call", "send", "check", "meet", "wait",
+            "work", "call", "send", "check", "meet", "meeting", "wait",
             "today", "tomorrow", "yesterday", "morning", "evening",
             "night", "time", "day", "week", "month", "year",
             "home", "office", "phone", "message", "number",

@@ -2,9 +2,16 @@
 <resources>
     <style name="Theme.Aaria" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/aaria_primary</item>
-        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorOnPrimary">@color/aaria_on_primary</item>
+        <item name="colorPrimaryContainer">@color/aaria_surface_elevated</item>
+        <item name="colorOnPrimaryContainer">@color/aaria_on_primary_variant</item>
+        <item name="android:windowBackground">@color/aaria_background</item>
+        <item name="android:statusBarColor">@color/aaria_background</item>
+        <item name="android:navigationBarColor">@color/aaria_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="colorSurface">@color/aaria_surface</item>
+        <item name="colorOnSurface">@color/aaria_on_surface</item>
+        <item name="colorOutline">@color/aaria_outline</item>
+        <item name="colorOnSurfaceVariant">@color/aaria_on_surface_variant</item>
     </style>
-
-    <color name="aaria_primary">#6C63FF</color>
-    <color name="white">#FFFFFF</color>
 </resources>

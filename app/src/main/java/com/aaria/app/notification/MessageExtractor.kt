@@ -72,7 +72,10 @@ class MessageExtractor {
             groupName = groupName,
             senderKey = senderKey,
             timestamp = sbn.postTime,
-            replyAvailable = replyAvailable
+            replyAvailable = replyAvailable,
+            notificationPackage = sbn.packageName,
+            notificationTag = sbn.tag,
+            notificationId = sbn.id
         )
     }
 }

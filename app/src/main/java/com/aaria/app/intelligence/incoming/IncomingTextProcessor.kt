@@ -1,5 +1,8 @@
 package com.aaria.app.intelligence.incoming
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 class IncomingTextProcessor(
     private val emojiProcessor: EmojiProcessor = EmojiProcessor(),
     private val abbreviationExpander: AbbreviationExpander = AbbreviationExpander(),
@@ -9,7 +12,13 @@ class IncomingTextProcessor(
     private val ssmlBuilder: SsmlBuilder = SsmlBuilder()
 ) {
 
-    fun process(rawText: String): ProcessedMessage {
+    /**
+     * Full text intelligence pipeline for an incoming WhatsApp message.
+     *
+     * Runs on [Dispatchers.IO] because [LanguageDetector.detect] blocks on the
+     * ML Kit Tasks API (must not run on the main thread).
+     */
+    suspend fun process(rawText: String): ProcessedMessage = withContext(Dispatchers.IO) {
         val afterEmoji = emojiProcessor.process(rawText)
         val afterAbbrev = abbreviationExpander.expand(afterEmoji)
         val langProfile = languageDetector.detect(afterAbbrev)
@@ -17,12 +26,16 @@ class IncomingTextProcessor(
         val transliterated = transliterator.transliterate(taggedWords)
         val ssml = ssmlBuilder.build(transliterated)
 
-        return ProcessedMessage(
+        ProcessedMessage(
             original = rawText,
             plainText = afterAbbrev,
             ssml = ssml,
             languageProfile = langProfile
         )
+    }
+
+    fun close() {
+        languageDetector.close()
     }
 
     data class ProcessedMessage(

@@ -175,19 +175,27 @@ class AbbreviationExpander {
     )
 
     fun expand(text: String): String {
+        // Split on whitespace, preserving the whitespace tokens so we can rejoin exactly
         val tokens = text.split(Regex("(?<=\\s)|(?=\\s)"))
         return tokens.joinToString("") { token ->
             val trimmed = token.trim()
             if (trimmed.isEmpty()) token
             else {
-                val expanded = dictionary[trimmed.lowercase()]
+                // Strip trailing punctuation before dictionary lookup, re-attach after
+                val trailingPunct = trimmed.takeLastWhile { it in PUNCT_CHARS }
+                val word = if (trailingPunct.isNotEmpty()) trimmed.dropLast(trailingPunct.length) else trimmed
+                val expanded = dictionary[word.lowercase()]
                 if (expanded != null) {
-                    // Preserve leading capitalisation
-                    if (trimmed[0].isUpperCase()) expanded.replaceFirstChar { it.uppercase() }
-                    else expanded
+                    val result = if (word[0].isUpperCase()) expanded.replaceFirstChar { it.uppercase() }
+                                 else expanded
+                    result + trailingPunct
                 } else token
             }
         }
+    }
+
+    companion object {
+        private val PUNCT_CHARS = setOf('.', ',', '!', '?', ';', ':', '…')
     }
 
     fun addCustomExpansion(abbreviation: String, expansion: String) {

@@ -29,26 +29,36 @@ class MessageReader(
 ) {
 
     /**
+     * Fired on the calling coroutine after each message is processed.
+     * Provides the [IncomingTextProcessor.ProcessedMessage] for UI/debug display.
+     */
+    var onMessageProcessed: ((IncomingTextProcessor.ProcessedMessage) -> Unit)? = null
+
+    /**
      * Attempt to read [message] aloud.
      *
+     * This is a suspend function because [IncomingTextProcessor.process] runs the
+     * ML Kit language detector on a background thread.
+     *
      * @param message  The message to read.
-     * @param onDone   Called when TTS finishes (or is skipped). Always fires.
+     * @param onDone   Called when TTS finishes or is skipped. Parameter is true only if the message was actually read aloud (so caller can e.g. dismiss the notification only when read).
      */
-    fun read(message: MessageObject, onDone: (() -> Unit)? = null) {
+    suspend fun read(message: MessageObject, onDone: ((wasRead: Boolean) -> Unit)? = null) {
         if (audioFocusManager.isInCall()) {
             Log.d(TAG, "Suppressing TTS — phone call in progress")
-            onDone?.invoke()
+            onDone?.invoke(false)
             return
         }
 
         if (!modeManager.shouldReadMessage(message.sender)) {
             Log.d(TAG, "Mode ${modeManager.currentMode} — skipping read for ${message.sender}")
-            onDone?.invoke()
+            onDone?.invoke(false)
             return
         }
 
         val prefix = buildPrefix(message)
         val processed = textProcessor.process(message.text)
+        onMessageProcessed?.invoke(processed)
 
         if (ttsManager.ssmlSupported == true) {
             // Wrap prefix in English, then append processed SSML body
@@ -63,11 +73,11 @@ class MessageReader(
                 append("</speak>")
             }
             Log.d(TAG, "Reading SSML: ${ssml.take(120)}")
-            ttsManager.speakSsml(ssml, plainFallback = prefix + processed.plainText, onDone = onDone)
+            ttsManager.speakSsml(ssml, plainFallback = prefix + processed.plainText, onDone = { onDone?.invoke(true) })
         } else {
             val plain = prefix + processed.plainText
             Log.d(TAG, "Reading plain: $plain")
-            ttsManager.speak(plain, onDone)
+            ttsManager.speak(plain, onDone = { onDone?.invoke(true) })
         }
     }
 
@@ -88,6 +98,14 @@ class MessageReader(
      */
     fun stop() {
         ttsManager.stop()
+    }
+
+    /**
+     * Release resources held by the text processor (ML Kit language detector client).
+     * Call when the owning service is destroyed.
+     */
+    fun close() {
+        textProcessor.close()
     }
 
     // -------------------------------------------------------------------------

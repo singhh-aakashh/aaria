@@ -31,13 +31,15 @@ class Transliterator {
         // If already Devanagari, return as-is
         if (word.any { it.code in 0x0900..0x097F }) return word
 
-        val lower = word.lowercase().trimEnd('.', ',', '!', '?')
+        val lower = word.lowercase()
+        val trailingPunct = lower.takeLastWhile { it in PUNCT_CHARS }
+        val core = if (trailingPunct.isNotEmpty()) lower.dropLast(trailingPunct.length) else lower
 
         // Dictionary lookup first (most accurate)
-        WORD_DICT[lower]?.let { return it }
+        WORD_DICT[core]?.let { return it + trailingPunct }
 
         // Phoneme rule-based conversion
-        return applyPhonemeRules(lower)
+        return applyPhonemeRules(core) + trailingPunct
     }
 
     private fun applyPhonemeRules(input: String): String {
@@ -140,6 +142,8 @@ class Transliterator {
             "yaar" to "यार", "boss" to "बॉस",
             "ji" to "जी", "hnji" to "हाँ जी", "hnj" to "हाँ जी"
         )
+
+        private val PUNCT_CHARS = setOf('.', ',', '!', '?', ';', ':')
 
         // Longest-match phoneme rules: Roman → Devanagari syllables
         // Ordered longest-first so "kh" matches before "k", etc.
