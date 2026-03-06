@@ -13,6 +13,8 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0"
+        buildConfigField("String", "PICOVOICE_ACCESS_KEY", "\"${project.findProperty("PICOVOICE_ACCESS_KEY") ?: ""}\"")
+        buildConfigField("String", "OPENAI_API_KEY", "\"${project.findProperty("OPENAI_API_KEY") ?: ""}\"")
     }
 
     buildTypes {
@@ -29,6 +31,10 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {
@@ -44,4 +50,6 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     implementation("ai.picovoice:porcupine-android:3.0.2")
+
+    implementation("androidx.lifecycle:lifecycle-service:2.7.0")
 }

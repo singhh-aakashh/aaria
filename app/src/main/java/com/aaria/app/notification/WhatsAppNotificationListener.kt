@@ -1,8 +1,10 @@
 package com.aaria.app.notification
 
+import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.aaria.app.AariaApplication
+import com.aaria.app.service.AariaForegroundService
 
 class WhatsAppNotificationListener : NotificationListenerService() {
 
@@ -15,13 +17,20 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     private val messageExtractor = MessageExtractor()
 
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        // Ensure the foreground service is alive whenever the listener (re)connects.
+        // This covers the case where the service was killed by the OS while the
+        // notification listener was still bound.
+        startForegroundService(Intent(this, AariaForegroundService::class.java))
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         if (sbn.packageName !in WHATSAPP_PACKAGES) return
 
         val message = messageExtractor.extract(sbn) ?: return
         val app = application as AariaApplication
 
-        // Store RemoteInput action for this conversation, if present
         val actionWithRemoteInput = sbn.notification.actions
             ?.firstOrNull { action ->
                 val inputs = action.remoteInputs
@@ -40,14 +49,16 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             }
         }
 
-        // Push to in-memory queue so UI can log messages
+        // Ensure the foreground service is running so TTS has a valid context
+        startForegroundService(Intent(this, AariaForegroundService::class.java))
+
+        // Push to queue — the foreground service's callback will trigger TTS
         app.messageQueue.add(message)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
         if (sbn.packageName !in WHATSAPP_PACKAGES) return
 
-        // On removal we treat the associated RemoteInput as expired
         val message = messageExtractor.extract(sbn) ?: return
         val app = application as AariaApplication
         app.remoteInputStore.markExpired(message.senderKey)

@@ -1,5 +1,7 @@
 package com.aaria.app.network
 
+import com.aaria.app.BuildConfig
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -10,9 +12,19 @@ object ApiClient {
 
     private const val WHISPER_BASE_URL = "https://api.openai.com/"
 
+    private val authInterceptor = Interceptor { chain ->
+        val key = BuildConfig.OPENAI_API_KEY
+        val request = chain.request().newBuilder()
+        if (key.isNotEmpty()) {
+            request.addHeader("Authorization", "Bearer $key")
+        }
+        chain.proceed(request.build())
+    }
+
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
+        .addInterceptor(authInterceptor)
         .addInterceptor(HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
         })

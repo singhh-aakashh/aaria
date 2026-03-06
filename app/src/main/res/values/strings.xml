@@ -11,4 +11,28 @@
     <string name="notification_access_status_disabled">Notification access: DISABLED</string>
     <string name="captured_messages_title">Captured WhatsApp messages</string>
     <string name="no_messages_yet">No messages captured yet.</string>
+
+    <!-- Battery optimization -->
+    <string name="battery_opt_restricted">Battery optimization: RESTRICTED — app may be killed in background</string>
+    <string name="battery_opt_exempt">Battery optimization: EXEMPT — app can run freely in background</string>
+    <string name="battery_opt_button">Disable battery optimization</string>
+
+    <!-- Phase 2: TTS / voice output -->
+    <string name="tts_section_title">Voice Output (Phase 2)</string>
+    <string name="ssml_status_unknown">SSML &lt;lang&gt; support: checking…</string>
+    <string name="ssml_status_supported">SSML &lt;lang&gt; support: SUPPORTED</string>
+    <string name="ssml_status_unsupported">SSML &lt;lang&gt; support: NOT SUPPORTED — will use plain TTS</string>
+    <string name="test_tts_button">Test TTS</string>
+    <string name="mode_section_title">Mode</string>
+    <string name="mode_normal">Normal</string>
+    <string name="mode_driving">Driving</string>
+    <string name="mode_silent">Silent</string>
+    <string name="mode_driving_hint">Driving mode reads all messages aloud.</string>
+
+    <!-- Phase 3: Voice reply status -->
+    <string name="voice_reply_section_title">Voice reply (Phase 3)</string>
+    <string name="voice_reply_status_idle">Idle</string>
+    <string name="voice_reply_status_listening">Listening for \"Porcupine\"…</string>
+    <string name="voice_reply_status_recording">Recording… Say \"Terminator\" or stay silent</string>
+    <string name="voice_reply_saved">WAV saved: %s</string>
 </resources>

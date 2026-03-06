@@ -6,6 +6,15 @@ import com.aaria.app.queue.MessageObject
 
 class MessageExtractor {
 
+    private companion object {
+        // "12 messages from 4 chats"  — global summary
+        // "2 new messages"            — per-contact collapsed summary
+        private val SUMMARY_PATTERN = Regex(
+            """^\d+\s+message[s]?\s+from\s+\d+\s+chat[s]?$|^\d+\s+new\s+message[s]?$""",
+            RegexOption.IGNORE_CASE
+        )
+    }
+
     /**
      * Extracts a normalized [MessageObject] from a WhatsApp [StatusBarNotification].
      *
@@ -38,6 +47,10 @@ class MessageExtractor {
         val groupName = if (isGroup) conversationTitle else null
 
         val sender = title
+
+        // Ignore WhatsApp's aggregate summary notification ("12 messages from 4 chats")
+        if (sender.equals("WhatsApp", ignoreCase = true)) return null
+        if (SUMMARY_PATTERN.matches(text.trim())) return null
 
         // Sender key used to correlate RemoteInput actions with conversations
         val senderKey = if (isGroup) {

@@ -9,6 +9,7 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- ── Phase 1: Notification access ── -->
         <TextView
             android:id="@+id/statusTextView"
             android:layout_width="match_parent"
@@ -20,9 +21,129 @@
             android:id="@+id/enableListenerButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="8dp"
             android:text="@string/notification_access_button" />
 
+        <!-- ── Battery optimization ── -->
+        <TextView
+            android:id="@+id/batteryStatusTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textAppearance="?attr/textAppearanceBody1"
+            android:text="@string/battery_opt_restricted" />
+
+        <Button
+            android:id="@+id/batteryOptButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/battery_opt_button" />
+
+        <!-- ── Phase 2: TTS / SSML status ── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/tts_section_title"
+            android:textStyle="bold"
+            android:textAppearance="?attr/textAppearanceSubtitle1" />
+
+        <TextView
+            android:id="@+id/ssmlStatusTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="?attr/textAppearanceBody2"
+            android:text="@string/ssml_status_unknown" />
+
+        <Button
+            android:id="@+id/testTtsButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/test_tts_button" />
+
+        <!-- ── Phase 2: Mode selector ── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/mode_section_title"
+            android:textStyle="bold"
+            android:textAppearance="?attr/textAppearanceSubtitle1" />
+
+        <RadioGroup
+            android:id="@+id/modeRadioGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/modeNormal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/mode_normal" />
+
+            <RadioButton
+                android:id="@+id/modeDriving"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/mode_driving" />
+
+            <RadioButton
+                android:id="@+id/modeSilent"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:text="@string/mode_silent" />
+
+        </RadioGroup>
+
+        <TextView
+            android:id="@+id/modeHintTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textAppearance="?attr/textAppearanceCaption"
+            android:text="@string/mode_driving_hint" />
+
+        <!-- ── Phase 3: Voice reply status + animation ── -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/voice_reply_section_title"
+            android:textStyle="bold"
+            android:textAppearance="?attr/textAppearanceSubtitle1" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ProgressBar
+                android:id="@+id/recordingIndicator"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:indeterminateTint="?attr/colorPrimary"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/recordingStatusTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:textAppearance="?attr/textAppearanceBody1"
+                android:text="@string/voice_reply_status_idle" />
+
+        </LinearLayout>
+
+        <!-- ── Message log ── -->
         <TextView
             android:id="@+id/logTitleTextView"
             android:layout_width="match_parent"

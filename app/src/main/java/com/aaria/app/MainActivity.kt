@@ -1,17 +1,29 @@
 package com.aaria.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Button
+import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import com.aaria.app.mode.AariaMode
 import com.aaria.app.queue.MessageObject
+import com.aaria.app.service.AariaForegroundService
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusTextView: TextView
+    private lateinit var batteryStatusTextView: TextView
+    private lateinit var ssmlStatusTextView: TextView
     private lateinit var logTextView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -19,49 +31,152 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         statusTextView = findViewById(R.id.statusTextView)
+        batteryStatusTextView = findViewById(R.id.batteryStatusTextView)
+        ssmlStatusTextView = findViewById(R.id.ssmlStatusTextView)
         logTextView = findViewById(R.id.logTextView)
-        val enableButton: Button = findViewById(R.id.enableListenerButton)
 
-        enableButton.setOnClickListener {
-            // Opens system settings where the user can grant notification access
+        requestRecordAudioIfNeeded()
+
+        // Start the foreground service immediately on launch — don't wait for a message
+        startForegroundService(Intent(this, AariaForegroundService::class.java))
+
+        findViewById<Button>(R.id.enableListenerButton).setOnClickListener {
             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
         }
 
+        findViewById<Button>(R.id.batteryOptButton).setOnClickListener {
+            requestBatteryOptimizationExemption()
+        }
+
+        findViewById<Button>(R.id.testTtsButton).setOnClickListener {
+            val app = application as AariaApplication
+            app.messageReader.announce("Aaria is working. Text to speech is active.")
+        }
+
+        setupModeSelector()
         updateNotificationAccessStatus()
+        updateBatteryStatus()
+        updateSsmlStatus()
         bindToMessageQueue()
+        bindRecordingStatus()
     }
 
     override fun onResume() {
         super.onResume()
-        // In case the user changed notification access while in settings
         updateNotificationAccessStatus()
+        updateBatteryStatus()
+        updateSsmlStatus()
+        updateRecordingStatusUi()
+    }
+
+    private fun requestRecordAudioIfNeeded() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO)
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        // Avoid leaking the Activity via the queue callback
         val app = application as AariaApplication
-        app.messageQueue.onMessageAdded = null
+        app.messageQueue.removeListener(LISTENER_TAG)
+        app.onRecordingStatusChanged = null
+    }
+
+    // -------------------------------------------------------------------------
+
+    private fun setupModeSelector() {
+        val app = application as AariaApplication
+        val radioGroup = findViewById<RadioGroup>(R.id.modeRadioGroup)
+
+        val modeForButton = mapOf(
+            R.id.modeNormal to AariaMode.NORMAL,
+            R.id.modeDriving to AariaMode.DRIVING,
+            R.id.modeSilent to AariaMode.SILENT
+        )
+
+        // Reflect current mode on launch
+        val currentMode = app.modeManager.currentMode
+        val initialId = modeForButton.entries.firstOrNull { it.value == currentMode }?.key
+        if (initialId != null) radioGroup.check(initialId)
+
+        radioGroup.setOnCheckedChangeListener { _, checkedId ->
+            val mode = modeForButton[checkedId] ?: return@setOnCheckedChangeListener
+            app.modeManager.switchTo(mode)
+            appendSystemLog("Mode switched to $mode")
+        }
     }
 
     private fun updateNotificationAccessStatus() {
         val enabledPackages = NotificationManagerCompat.getEnabledListenerPackages(this)
         val enabled = enabledPackages.contains(packageName)
-        val textRes = if (enabled) {
-            R.string.notification_access_status_enabled
-        } else {
-            R.string.notification_access_status_disabled
+        statusTextView.setText(
+            if (enabled) R.string.notification_access_status_enabled
+            else R.string.notification_access_status_disabled
+        )
+    }
+
+    private fun updateSsmlStatus() {
+        val app = application as AariaApplication
+        val supported = app.ttsManager.ssmlSupported
+        ssmlStatusTextView.text = when (supported) {
+            true -> getString(R.string.ssml_status_supported)
+            false -> getString(R.string.ssml_status_unsupported)
+            null -> getString(R.string.ssml_status_unknown)
         }
-        statusTextView.setText(textRes)
+    }
+
+    private fun updateBatteryStatus() {
+        val pm = getSystemService(PowerManager::class.java)
+        val exempt = pm.isIgnoringBatteryOptimizations(packageName)
+        batteryStatusTextView.setText(
+            if (exempt) R.string.battery_opt_exempt
+            else R.string.battery_opt_restricted
+        )
+        findViewById<Button>(R.id.batteryOptButton).isEnabled = !exempt
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            data = Uri.parse("package:$packageName")
+        }
+        startActivity(intent)
     }
 
     private fun bindToMessageQueue() {
         val app = application as AariaApplication
+        app.messageQueue.addListener(LISTENER_TAG) { message ->
+            runOnUiThread { appendMessageLog(message) }
+        }
+    }
 
-        // If messages arrive while the Activity is visible, append them to the debug log
-        app.messageQueue.onMessageAdded = { message ->
+    private fun bindRecordingStatus() {
+        val app = application as AariaApplication
+        app.onRecordingStatusChanged = { status, wavPath ->
             runOnUiThread {
-                appendMessageLog(message)
+                updateRecordingStatusUi()
+                if (status == "idle" && !wavPath.isNullOrEmpty()) {
+                    appendSystemLog("WAV saved: $wavPath")
+                }
+            }
+        }
+    }
+
+    private fun updateRecordingStatusUi() {
+        val app = application as AariaApplication
+        val statusView = findViewById<TextView>(R.id.recordingStatusTextView)
+        val indicator = findViewById<android.widget.ProgressBar>(R.id.recordingIndicator)
+        when (app.recordingStatus) {
+            "listening_for_wake" -> {
+                statusView.setText(R.string.voice_reply_status_listening)
+                indicator.visibility = android.view.View.VISIBLE
+            }
+            "recording" -> {
+                statusView.setText(R.string.voice_reply_status_recording)
+                indicator.visibility = android.view.View.VISIBLE
+            }
+            else -> {
+                statusView.setText(R.string.voice_reply_status_idle)
+                indicator.visibility = android.view.View.GONE
             }
         }
     }
@@ -70,17 +185,27 @@ class MainActivity : AppCompatActivity() {
         if (logTextView.text == getString(R.string.no_messages_yet)) {
             logTextView.text = ""
         }
-
         val builder = StringBuilder()
         builder.append("Sender: ${message.sender}\n")
-        if (message.isGroup) {
-            builder.append("Group: ${message.groupName}\n")
-        }
+        if (message.isGroup) builder.append("Group: ${message.groupName}\n")
         builder.append("Text: ${message.text}\n")
         builder.append("Reply available: ${message.replyAvailable}\n")
         builder.append("Timestamp: ${message.timestamp}")
         builder.append("\n\n")
-
         logTextView.append(builder.toString())
+    }
+
+    private fun appendSystemLog(text: String) {
+        runOnUiThread {
+            if (logTextView.text == getString(R.string.no_messages_yet)) {
+                logTextView.text = ""
+            }
+            logTextView.append("[System] $text\n\n")
+        }
+    }
+
+    companion object {
+        private const val LISTENER_TAG = "main_activity"
+        private const val REQUEST_RECORD_AUDIO = 2001
     }
 }

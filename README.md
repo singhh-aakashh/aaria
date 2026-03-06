@@ -273,6 +273,8 @@ Integrate Android built-in TTS. Read incoming messages aloud. Implement TTS queu
 
 Integrate Porcupine for "Hey Aaria" and "Done". Build recording pipeline with MediaRecorder. Implement dual stop detection (Silero VAD + Porcupine running in parallel). Test in quiet and noisy environments.
 
+**Setup:** Get a free [Picovoice Access Key](https://console.picovoice.ai/) and set `PICOVOICE_ACCESS_KEY=your_key` in `gradle.properties` (or pass `-PPICOVOICE_ACCESS_KEY=your_key` when building). Without it, wake word is disabled and the app runs normally.
+
 **Done when:** Wake word reliably triggers recording, silence detection stops recording in quiet rooms, stop word stops recording in noisy environments, both run without audio conflicts.
 
 ### Phase 4 — Full Reply Loop
