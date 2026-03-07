@@ -242,56 +242,82 @@ Mode switching via wake word ("Hey Aaria, driving mode") or quick settings tile.
 
 ## Getting Started
 
+The following models are **not** included in the repo (they are large binaries). You must download them and place them in the exact paths below before building.
+
+---
+
 ### 1. sherpa-onnx AAR (required for STT)
 
-Download the pre-built AAR from Hugging Face:
+**Model:** sherpa-onnx Android library  
+**Version:** 1.12.21 or newer (tested with 1.12.21)
 
-```
-https://huggingface.co/csukuangfj/sherpa-onnx-libs/tree/main/android/aar
-```
+| Where to get it | Direct download (1.12.21) |
+|---|---|
+| [Browse all versions](https://huggingface.co/csukuangfj/sherpa-onnx-libs/tree/main/android/aar) | [sherpa-onnx-1.12.21.aar](https://huggingface.co/csukuangfj/sherpa-onnx-libs/resolve/main/android/aar/sherpa-onnx-1.12.21.aar) |
 
-Pick the latest version (e.g. `sherpa-onnx-1.12.28.aar`), rename it to `sherpa-onnx.aar`, and drop it into:
+**Steps:**
+1. Download the AAR (any 1.12.x version works; e.g. `sherpa-onnx-1.12.21.aar`).
+2. **Rename** it to exactly `sherpa-onnx.aar`.
+3. Place it at this **exact path** (create `app/libs/` if needed):
 
-```
-app/libs/sherpa-onnx.aar
-```
+   ```
+   <project-root>/app/libs/sherpa-onnx.aar
+   ```
+
+   Example full path: `C:\Users\You\Projects\aaria\app\libs\sherpa-onnx.aar`
+
+---
 
 ### 2. Whisper Base model files (required for STT)
 
-Download the int8 quantized Whisper Base multilingual model from Hugging Face:
+**Model:** Whisper Base multilingual (int8 quantized)  
+**Source:** [csukuangfj/sherpa-onnx-whisper-base](https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base)
 
-```
-https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base
-```
+| File | Size | Direct download |
+|---|---|---|
+| `base-encoder.int8.onnx` | ~29 MB | [Download](https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-encoder.int8.onnx) |
+| `base-decoder.int8.onnx` | ~131 MB | [Download](https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-decoder.int8.onnx) |
+| `base-tokens.txt` | ~817 KB | [Download](https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-tokens.txt) |
 
-You need these three files:
+**Steps:**
+1. Create the directory: `<project-root>/app/src/main/assets/sherpa-onnx-whisper-base/`
+2. Place all three files **directly inside** that folder. Do not nest them in a subfolder.
+3. **Exact paths** (replace `<project-root>` with your repo path):
 
-| File | Size |
-|---|---|
-| `base-encoder.int8.onnx` | ~29 MB |
-| `base-decoder.int8.onnx` | ~131 MB |
-| `base-tokens.txt` | ~817 KB |
+   ```
+   <project-root>/app/src/main/assets/sherpa-onnx-whisper-base/base-encoder.int8.onnx
+   <project-root>/app/src/main/assets/sherpa-onnx-whisper-base/base-decoder.int8.onnx
+   <project-root>/app/src/main/assets/sherpa-onnx-whisper-base/base-tokens.txt
+   ```
 
-Place them under:
+   Example full paths:
+   ```
+   C:\Users\You\Projects\aaria\app\src\main\assets\sherpa-onnx-whisper-base\base-encoder.int8.onnx
+   C:\Users\You\Projects\aaria\app\src\main\assets\sherpa-onnx-whisper-base\base-decoder.int8.onnx
+   C:\Users\You\Projects\aaria\app\src\main\assets\sherpa-onnx-whisper-base\base-tokens.txt
+   ```
 
-```
-app/src/main/assets/sherpa-onnx-whisper-base/
-  base-encoder.int8.onnx
-  base-decoder.int8.onnx
-  base-tokens.txt
-```
+---
 
 ### 3. Picovoice Access Key (required for wake word)
 
-Get a free key at [console.picovoice.ai](https://console.picovoice.ai/) and add it to `gradle.properties`:
+Get a free key at [console.picovoice.ai](https://console.picovoice.ai/).
 
-```
-PICOVOICE_ACCESS_KEY=your_key_here
-```
+Add it to **either**:
+- `gradle.properties`: `PICOVOICE_ACCESS_KEY=your_key_here`
+- Or `.env` in the project root (copy from `sample.env` and fill in the key)
+
+---
 
 ### 4. Build
 
-Open the project in Android Studio and run `Build → Make Project`. The `OPENAI_API_KEY` is no longer required.
+Open the project in Android Studio and run **Build → Make Project**, or from terminal:
+
+```bash
+./gradlew assembleDebug
+```
+
+Without the AAR and model files above, the build will succeed but the app will crash on first transcription with a clear error about missing assets.
 
 ---
 

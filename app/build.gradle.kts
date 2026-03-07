@@ -57,8 +57,7 @@ dependencies {
     implementation("com.google.mlkit:language-id:17.0.6")
 
     // sherpa-onnx offline STT (Whisper Base on-device).
-    // Download sherpa-onnx-<version>.aar from
-    //   https://huggingface.co/csukuangfj/sherpa-onnx-libs/tree/main/android/aar
-    // and place it as app/libs/sherpa-onnx.aar before building.
+    // See README Getting Started: download sherpa-onnx-1.12.21.aar (or newer),
+    // rename to sherpa-onnx.aar, place at app/libs/sherpa-onnx.aar
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
 }

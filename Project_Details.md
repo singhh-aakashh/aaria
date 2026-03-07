@@ -521,41 +521,59 @@ The infrastructure exists (`ModeManager`, `AariaMode` enum, `shouldReadMessage`,
 - JDK 17
 - Android device or emulator running API 26+
 
+The AAR and Whisper model files are **not** in the repo (see `.gitignore`). You must download them before building.
+
+---
+
 ### Step 1: sherpa-onnx AAR
 
-Download from:
-```
-https://huggingface.co/csukuangfj/sherpa-onnx-libs/tree/main/android/aar
-```
-Rename the downloaded file to `sherpa-onnx.aar` and place it at:
-```
-app/libs/sherpa-onnx.aar
-```
+| Item | Value |
+|------|-------|
+| **Model** | sherpa-onnx Android library |
+| **Version** | 1.12.21 or newer (tested with 1.12.21) |
+| **Browse versions** | https://huggingface.co/csukuangfj/sherpa-onnx-libs/tree/main/android/aar |
+| **Direct download (1.12.21)** | https://huggingface.co/csukuangfj/sherpa-onnx-libs/resolve/main/android/aar/sherpa-onnx-1.12.21.aar |
+
+1. Download the AAR, **rename** to `sherpa-onnx.aar`
+2. Place at: `app/libs/sherpa-onnx.aar` (create `app/libs/` if needed)
+
+**Exact path:** `<project-root>/app/libs/sherpa-onnx.aar`
+
+---
 
 ### Step 2: Whisper Base model files
 
-Download from:
+| Item | Value |
+|------|-------|
+| **Model** | Whisper Base multilingual (int8 quantized) |
+| **Source** | https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base |
+
+| File | Size | Direct download |
+|------|------|-----------------|
+| `base-encoder.int8.onnx` | ~29 MB | https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-encoder.int8.onnx |
+| `base-decoder.int8.onnx` | ~131 MB | https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-decoder.int8.onnx |
+| `base-tokens.txt` | ~817 KB | https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base/resolve/main/base-tokens.txt |
+
+1. Create: `app/src/main/assets/sherpa-onnx-whisper-base/`
+2. Place all three files directly inside that folder
+
+**Exact paths:**
 ```
-https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base
+<project-root>/app/src/main/assets/sherpa-onnx-whisper-base/base-encoder.int8.onnx
+<project-root>/app/src/main/assets/sherpa-onnx-whisper-base/base-decoder.int8.onnx
+<project-root>/app/src/main/assets/sherpa-onnx-whisper-base/base-tokens.txt
 ```
-Place all three files at:
-```
-app/src/main/assets/sherpa-onnx-whisper-base/
-  base-encoder.int8.onnx   (~29 MB)
-  base-decoder.int8.onnx   (~131 MB)
-  base-tokens.txt          (~817 KB)
-```
+
+---
 
 ### Step 3: Picovoice Access Key
 
-Get a free key at [console.picovoice.ai](https://console.picovoice.ai/) and add it to `gradle.properties`:
+Get a free key at [console.picovoice.ai](https://console.picovoice.ai/). Add to `gradle.properties` or `.env`:
 ```
 PICOVOICE_ACCESS_KEY=your_key_here
 ```
-Or add to `.env` at the project root (auto-loaded by the root `build.gradle.kts`):
-```
-PICOVOICE_ACCESS_KEY="your_key_here"
-```
+
+---
 
 ### Step 4: Build
 
