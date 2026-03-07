@@ -9,3 +9,7 @@
 *.aab
 secrets.properties
 .env
+
+# Whisper model files — download separately (see README)
+app/libs/*.aar
+app/src/main/assets/sherpa-onnx-whisper-base/

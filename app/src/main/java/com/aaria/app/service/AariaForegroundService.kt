@@ -10,7 +10,6 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import com.aaria.app.AariaApplication
-import com.aaria.app.BuildConfig
 import com.aaria.app.MainActivity
 import com.aaria.app.R
 import com.aaria.app.queue.ContactSelector
@@ -57,6 +56,10 @@ class AariaForegroundService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
+        // Clean orphaned WAV files from previous crash/kill (OEM battery killer, etc.)
+        cacheDir.listFiles()
+            ?.filter { it.name.startsWith("aaria_reply_") && it.extension == "wav" }
+            ?.forEach { it.delete() }
         val app = application as AariaApplication
         queueAnnouncer = QueueAnnouncer(app.messageQueue, app.messageReader)
         contactSelector = ContactSelector(this)
@@ -78,6 +81,7 @@ class AariaForegroundService : LifecycleService() {
         app.messageReader.close()
         app.ttsManager.shutdown()
         app.wakeWordEngine.release()
+        app.sherpaWhisperEngine.release()
         app.setRecordingStatus("idle")
         app.setCurrentReplyTarget(null)
         Log.i(AARIA_TAG, "Service destroyed — TTS shut down")
@@ -106,9 +110,7 @@ class AariaForegroundService : LifecycleService() {
     private suspend fun startQueuePipeline(app: AariaApplication) {
         val pendingKeys = app.messageQueue.pendingSenderKeys()
         when {
-            pendingKeys.isEmpty() -> {
-                pipelineBusy.set(false)
-            }
+            pendingKeys.isEmpty() -> goIdle(app)
             pendingKeys.size == 1 -> {
                 // Only one sender — read immediately, no selection needed
                 readConversation(app, pendingKeys.first())
@@ -131,16 +133,20 @@ class AariaForegroundService : LifecycleService() {
             return
         }
 
-        // Read each message in the conversation sequentially
+        // Read each message in the conversation sequentially.
+        // Do NOT cancel the last message's notification here — it would invalidate the
+        // RemoteInput before the user can reply. Cancel only non-final messages.
+        val lastMessage = messages.last()
         for (message in messages) {
-            readSingleMessage(app, message)
+            val cancelNotificationOnTtsDone = (message != lastMessage)
+            readSingleMessage(app, message, cancelNotificationOnTtsDone)
         }
 
         // After reading, offer reply window if mode allows
-        val lastMessage = messages.last()
         if (app.modeManager.shouldActivateReplyWindow()) {
             openReplyWindow(app, lastMessage)
         } else {
+            dismissNotification(app, lastMessage)
             continueQueueOrFinish(app)
         }
     }
@@ -166,6 +172,7 @@ class AariaForegroundService : LifecycleService() {
                 Log.i(AARIA_TAG, "Reply window timed out — continuing queue")
                 app.wakeWordEngine.onWakeWordDetected = null
                 app.wakeWordEngine.stop()
+                dismissNotification(app, target)
                 app.setCurrentReplyTarget(null)
                 continueQueueOrFinish(app)
             }
@@ -193,7 +200,11 @@ class AariaForegroundService : LifecycleService() {
         app.wakeWordEngine.startListeningForReply()
     }
 
-    private suspend fun readSingleMessage(app: AariaApplication, message: MessageObject) {
+    private suspend fun readSingleMessage(
+        app: AariaApplication,
+        message: MessageObject,
+        cancelNotificationOnTtsDone: Boolean = true
+    ) {
         // Suspend until TTS finishes
         val latch = kotlinx.coroutines.CompletableDeferred<Boolean>()
         app.messageReader.read(message) { wasRead ->
@@ -203,16 +214,23 @@ class AariaForegroundService : LifecycleService() {
             if (wasRead && app.settingsStore.markAsReadAfterTts) {
                 Handler(Looper.getMainLooper()).post {
                     app.onTriggerMarkAsRead?.invoke(message.id)
-                    app.onCancelNotification?.invoke(
-                        message.notificationPackage,
-                        message.notificationTag,
-                        message.notificationId
-                    )
+                    if (cancelNotificationOnTtsDone) {
+                        dismissNotification(app, message)
+                    }
                 }
             }
             latch.complete(wasRead)
         }
         latch.await()
+    }
+
+    /** Dismisses the notification for [message]. Dismissing invalidates the RemoteInput. */
+    private fun dismissNotification(app: AariaApplication, message: MessageObject) {
+        app.onCancelNotification?.invoke(
+            message.notificationPackage,
+            message.notificationTag,
+            message.notificationId
+        )
     }
 
     /**
@@ -309,8 +327,20 @@ class AariaForegroundService : LifecycleService() {
         app.setCurrentReplyTarget(null)
         app.setRecordingStatus("idle")
         updateNotification("Listening for messages")
-        pipelineBusy.set(false)
+        goIdle(app)
         Log.i(AARIA_TAG, "Pipeline finished — idle")
+    }
+
+    /**
+     * Transition pipeline to idle, then re-check queue. Fixes race where messages that
+     * arrived while pipeline was busy were never processed until the next message arrived.
+     */
+    private fun goIdle(app: AariaApplication) {
+        pipelineBusy.set(false)
+        val remaining = app.messageQueue.pendingSenderKeys()
+        if (remaining.isNotEmpty() && pipelineBusy.compareAndSet(false, true)) {
+            scope.launch { startQueuePipeline(app) }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -319,12 +349,6 @@ class AariaForegroundService : LifecycleService() {
 
     private fun runReplyPipeline(app: AariaApplication, wavFile: File) {
         val target: MessageObject? = app.currentReplyTarget
-        if (BuildConfig.OPENAI_API_KEY.isBlank()) {
-            app.messageReader.announce("OpenAI API key not set. Add OPENAI_API_KEY to gradle.properties and rebuild.") {
-                finishReplyAndContinueQueue(app, wavFile, target)
-            }
-            return
-        }
         if (!wavFile.exists() || wavFile.length() < MIN_WAV_SIZE_BYTES) {
             Log.w(AARIA_TAG, "WAV file too short or missing: ${wavFile.length()} bytes")
             app.messageReader.announce("Recording too short. Please try again.") {
@@ -354,7 +378,7 @@ class AariaForegroundService : LifecycleService() {
                 }
 
                 if (target == null || !target.replyAvailable) {
-                    Log.w(AARIA_TAG, "No reply target or reply not available")
+                    Log.w(AARIA_TAG, "No reply target or replyAvailable=false — target=$target")
                     app.messageReader.announce("Reply window expired. Open WhatsApp manually.") {
                         finishReplyAndContinueQueue(app, wavFile, target)
                     }
@@ -363,6 +387,7 @@ class AariaForegroundService : LifecycleService() {
 
                 val action = app.remoteInputStore.retrieve(target.senderKey)
                 if (action == null || action.expired) {
+                    Log.w(AARIA_TAG, "RemoteInput missing or expired for senderKey=${target.senderKey} — action=$action")
                     app.messageReader.announce("Reply window expired. Open WhatsApp manually.") {
                         finishReplyAndContinueQueue(app, wavFile, target)
                     }
@@ -418,6 +443,7 @@ class AariaForegroundService : LifecycleService() {
                 }
                 is ReplyManager.ReplyResult.Expired,
                 is ReplyManager.ReplyResult.NoAction -> {
+                    Log.w(AARIA_TAG, "sendReply returned $result for senderKey=${target.senderKey}")
                     app.messageReader.announce("Reply window expired. Open WhatsApp manually.") {
                         finishReplyAndContinueQueue(app, wavFile, target)
                     }
@@ -434,10 +460,11 @@ class AariaForegroundService : LifecycleService() {
 
     /**
      * Called after a reply attempt (sent, cancelled, or failed).
-     * Cleans up the WAV file and continues the queue pipeline.
+     * Cleans up the WAV file, dismisses the notification, and continues the queue pipeline.
      */
     private fun finishReplyAndContinueQueue(app: AariaApplication, wavFile: File, target: MessageObject?) {
         wavFile.delete()
+        target?.let { dismissNotification(app, it) }
         app.setCurrentReplyTarget(null)
         continueQueueOrFinish(app)
     }

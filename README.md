@@ -155,13 +155,15 @@ The word "Done" is stripped from the transcription before sending.
 
 ### Layer 8 — Speech to Text
 
-| Tier | Engine | Cost | Notes |
-|---|---|---|---|
-| Primary | OpenAI Whisper API (`whisper-1`) | ~$0.001/message | Best Hinglish accuracy |
-| Offline fallback | Android SpeechRecognizer | Free | Decent English, weaker Hinglish |
-| Future fallback | whisper.cpp on-device (base model, 74MB) | Free | Good Hinglish, 6-8s processing |
+All transcription is fully **on-device** using [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) with **Whisper Base (int8 quantized)**. No network call is made; no API key is required.
 
-Whisper `prompt` parameter primed with: "Hinglish conversation, Roman script Hindi mixed with English, casual WhatsApp style" — improves output consistency.
+| Engine | Model | Size on disk | Notes |
+|---|---|---|---|
+| sherpa-onnx | Whisper Base multilingual int8 | ~160 MB | On-device, fully offline |
+
+The multilingual Whisper Base model is configured with `language="hi"` to bias toward Hinglish (Roman-script Hindi mixed with English).
+
+**Setup:** See [Getting Started](#getting-started) for model download and AAR instructions.
 
 ### Layer 9 — Text Cleanup (Outgoing)
 
@@ -224,19 +226,72 @@ Mode switching via wake word ("Hey Aaria, driving mode") or quick settings tile.
 | Language | Kotlin | Free |
 | Message capture | NotificationListenerService | Free |
 | Reply sending | RemoteInput API | Free |
-| Language detection | fastText via TFLite | Free |
+| Language detection | ML Kit language-id | Free |
 | Abbreviation expansion | Local Hinglish dictionary | Free |
 | Transliteration | Rule-based / ICU4J | Free |
 | TTS (primary) | Android built-in TTS | Free |
 | TTS (upgrade) | Azure Free Tier Neural | Free |
 | Wake word + stop word | Picovoice Porcupine | Free tier |
-| Silence detection | Silero VAD | Free |
-| STT (primary) | OpenAI Whisper API | ~$1/month |
-| STT (fallback) | Android SpeechRecognizer | Free |
-| HTTP client | OkHttp + Retrofit | Free |
+| Silence detection | Energy-based VAD | Free |
+| STT | sherpa-onnx + Whisper Base int8 | Free — fully offline |
 | Background service | Android Foreground Service | Free |
 
-**Total monthly cost: ~$1**
+**Total monthly cost: $0**
+
+---
+
+## Getting Started
+
+### 1. sherpa-onnx AAR (required for STT)
+
+Download the pre-built AAR from Hugging Face:
+
+```
+https://huggingface.co/csukuangfj/sherpa-onnx-libs/tree/main/android/aar
+```
+
+Pick the latest version (e.g. `sherpa-onnx-1.12.28.aar`), rename it to `sherpa-onnx.aar`, and drop it into:
+
+```
+app/libs/sherpa-onnx.aar
+```
+
+### 2. Whisper Base model files (required for STT)
+
+Download the int8 quantized Whisper Base multilingual model from Hugging Face:
+
+```
+https://huggingface.co/csukuangfj/sherpa-onnx-whisper-base
+```
+
+You need these three files:
+
+| File | Size |
+|---|---|
+| `base-encoder.int8.onnx` | ~29 MB |
+| `base-decoder.int8.onnx` | ~131 MB |
+| `base-tokens.txt` | ~817 KB |
+
+Place them under:
+
+```
+app/src/main/assets/sherpa-onnx-whisper-base/
+  base-encoder.int8.onnx
+  base-decoder.int8.onnx
+  base-tokens.txt
+```
+
+### 3. Picovoice Access Key (required for wake word)
+
+Get a free key at [console.picovoice.ai](https://console.picovoice.ai/) and add it to `gradle.properties`:
+
+```
+PICOVOICE_ACCESS_KEY=your_key_here
+```
+
+### 4. Build
+
+Open the project in Android Studio and run `Build → Make Project`. The `OPENAI_API_KEY` is no longer required.
 
 ---
 
@@ -246,8 +301,6 @@ Mode switching via wake word ("Hey Aaria, driving mode") or quick settings tile.
 |---|---|
 | `BIND_NOTIFICATION_LISTENER_SERVICE` | Read WhatsApp notifications |
 | `RECORD_AUDIO` | Wake word, stop word, voice recording |
-| `INTERNET` | Whisper API, optional Azure TTS |
-| `SYSTEM_ALERT_WINDOW` | Floating overlay bubble |
 | `FOREGROUND_SERVICE` | Keep listener alive in background |
 | `VIBRATE` | Haptic feedback |
 
@@ -337,7 +390,7 @@ Bluetooth earbud integration and button fallback. Battery optimization whitelist
 | Contact name selection needs open-vocab STT, not Porcupine | Medium | Use short Whisper/SpeechRecognizer burst or numbered options |
 | Notification listener permission scares users | Low (personal use) | Clear onboarding explanation |
 | Wake word false positives | Low | Porcupine sensitivity tuning, listener not active 24/7 |
-| No internet breaks Whisper STT | Medium | Android SpeechRecognizer offline fallback |
+| Whisper Base int8 accuracy lower than whisper-1 for rare Hinglish | Medium | Acceptable for casual WhatsApp; upgrade to Small if needed |
 | OTP/sensitive notification exposure | Low | Strict package whitelist, nothing stored |
 | Audio focus conflicts | Medium | Proper AudioFocusRequest lifecycle |
 
@@ -346,7 +399,7 @@ Bluetooth earbud integration and button fallback. Battery optimization whitelist
 ## Future Ideas (Not in Scope for v1)
 
 - **Voice cloning** — read messages in a specific person's voice using ElevenLabs/Coqui/OpenVoice
-- **On-device Whisper** — whisper.cpp with base model for fully offline STT
+- **Whisper Small upgrade** — swap base-encoder/decoder for small int8 (~340 MB) for better Hinglish accuracy
 - **Smart replies** — AI-suggested responses based on conversation context
 - **Tone adjustment** — rephrase casual speech for clarity
 - **Learning personal abbreviations** — auto-expand user-specific shorthand over time

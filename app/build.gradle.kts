@@ -14,7 +14,12 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         buildConfigField("String", "PICOVOICE_ACCESS_KEY", "\"${project.findProperty("PICOVOICE_ACCESS_KEY") ?: ""}\"")
-        buildConfigField("String", "OPENAI_API_KEY", "\"${project.findProperty("OPENAI_API_KEY") ?: ""}\"")
+
+        // Only build for arm64 devices; excludes x86 emulator slices to keep APK lean.
+        // Remove this filter if you need emulator support.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {
@@ -44,15 +49,16 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
-
     implementation("ai.picovoice:porcupine-android:3.0.2")
 
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
 
     // ML Kit language identification — bundled model (~900 KB), works fully offline
     implementation("com.google.mlkit:language-id:17.0.6")
+
+    // sherpa-onnx offline STT (Whisper Base on-device).
+    // Download sherpa-onnx-<version>.aar from
+    //   https://huggingface.co/csukuangfj/sherpa-onnx-libs/tree/main/android/aar
+    // and place it as app/libs/sherpa-onnx.aar before building.
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
 }

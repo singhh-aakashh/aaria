@@ -139,11 +139,29 @@ class ContactSelector(private val context: Context) {
         return SelectionResult.NoMatch
     }
 
+    /**
+     * Extract a number from recognised text. Handles:
+     * - Whole string: "1", "one", "2."
+     * - Single word in phrase: "option 1", "say one", "number 2"
+     * - Punctuation: "1.", "one," → stripped before parsing
+     * - Homophones: "won" → 1
+     */
     private fun parseNumber(text: String): Int? {
-        // Digit string
-        text.trim().toIntOrNull()?.let { return it }
-        // Word numbers
-        return WORD_NUMBERS[text.trim()]
+        val cleaned = text.trim().lowercase().replace(Regex("[.,!?]"), "").trim()
+        if (cleaned.isEmpty()) return null
+
+        // Try whole string first
+        cleaned.toIntOrNull()?.let { return it }
+        WORD_NUMBERS[cleaned]?.let { return it }
+
+        // Try each word (handles "option 1", "say one", "number 2")
+        for (word in cleaned.split(Regex("\\s+"))) {
+            val w = word.trim()
+            if (w.isEmpty()) continue
+            w.toIntOrNull()?.let { return it }
+            WORD_NUMBERS[w]?.let { return it }
+        }
+        return null
     }
 
     private fun errorDescription(error: Int): String = when (error) {
@@ -167,7 +185,8 @@ class ContactSelector(private val context: Context) {
         private val WORD_NUMBERS = mapOf(
             "one" to 1, "two" to 2, "three" to 3, "four" to 4, "five" to 5,
             "six" to 6, "seven" to 7, "eight" to 8, "nine" to 9, "ten" to 10,
-            "ek" to 1, "do" to 2, "teen" to 3, "char" to 4, "paanch" to 5
+            "ek" to 1, "do" to 2, "teen" to 3, "char" to 4, "paanch" to 5,
+            "won" to 1  // common homophone for "one"
         )
     }
 }

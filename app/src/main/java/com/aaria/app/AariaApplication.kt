@@ -9,7 +9,6 @@ import com.aaria.app.audio.AudioFocusManager
 import com.aaria.app.data.SettingsStore
 import com.aaria.app.intelligence.outgoing.OutgoingTextCleaner
 import com.aaria.app.mode.ModeManager
-import com.aaria.app.network.ApiClient
 import com.aaria.app.notification.RemoteInputStore
 import com.aaria.app.notification.MarkAsReadStore
 import com.aaria.app.queue.MessageObject
@@ -17,6 +16,7 @@ import com.aaria.app.queue.MessageQueue
 import com.aaria.app.recording.DualStopDetector
 import com.aaria.app.recording.SilenceDetector
 import com.aaria.app.reply.ReplyManager
+import com.aaria.app.stt.SherpaWhisperEngine
 import com.aaria.app.stt.SttManager
 import com.aaria.app.stt.WhisperClient
 import com.aaria.app.intelligence.incoming.IncomingTextProcessor
@@ -60,6 +60,9 @@ class AariaApplication : Application() {
         private set
 
     lateinit var sttManager: SttManager
+        private set
+
+    lateinit var sherpaWhisperEngine: SherpaWhisperEngine
         private set
 
     lateinit var outgoingTextCleaner: OutgoingTextCleaner
@@ -156,7 +159,9 @@ class AariaApplication : Application() {
 
         dualStopDetector = DualStopDetector(silenceDetector, wakeWordEngine)
 
-        val whisperClient = WhisperClient(ApiClient.whisperApi)
+        val whisperEngine = SherpaWhisperEngine(this)
+        sherpaWhisperEngine = whisperEngine
+        val whisperClient = WhisperClient(whisperEngine)
         sttManager = SttManager(this, whisperClient)
         outgoingTextCleaner = OutgoingTextCleaner()
         replyManager = ReplyManager(this)

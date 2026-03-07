@@ -5,6 +5,7 @@ import android.app.Notification
 import android.content.Intent
 import android.os.Build
 import android.service.notification.NotificationListenerService
+import android.service.notification.NotificationListenerService.RankingMap
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.aaria.app.AariaApplication
@@ -88,8 +89,15 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         app.messageQueue.add(message)
     }
 
-    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+    override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap, reason: Int) {
         if (sbn.packageName !in WHATSAPP_PACKAGES) return
+
+        // Only expire the RemoteInput when the user explicitly dismissed the notification
+        // (REASON_CANCEL or REASON_CANCEL_ALL). WhatsApp frequently replaces a notification
+        // with an updated one (REASON_APP_CANCEL / snoozed / updated) — in those cases the
+        // RemoteInput in the new sbn is still valid and must NOT be expired.
+        val userDismissed = reason == REASON_CANCEL || reason == REASON_CANCEL_ALL
+        if (!userDismissed) return
 
         val message = messageExtractor.extract(sbn) ?: return
         val app = application as AariaApplication
